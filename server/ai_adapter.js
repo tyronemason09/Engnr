@@ -1,5 +1,6 @@
-import fetch from 'node-fetch';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 import fs from 'fs';
+import path from 'path';
 
 function localAnalysis(metrics, referenceContext = '', visionContext = '') {
   const parts = [];
@@ -26,61 +27,129 @@ function localAnalysis(metrics, referenceContext = '', visionContext = '') {
   return parts.join('\n\n');
 }
 
+async function callGeminiForAnalysis(audioFilePath, metrics, referenceContext = '', visionContext = '') {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey || apiKey === 'your_gemini_api_key_here') {
+    throw new Error('GEMINI_API_KEY not configured');
+  }
+
+  const genAI = new GoogleGenerativeAI(apiKey);
+  const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+
+  const audioData = fs.readFileSync(audioFilePath);
+  const base64Audio = audioData.toString('base64');
+  const mimeType = getMimeType(audioFilePath);
+
+  const metricsText = `
+AUDIO FILE METRICS:
+- Duration: ${metrics.duration?.toFixed(2) || 0}s
+- Peak Level: ${metrics.peakLevel?.toFixed(1) || 0} dB
+- RMS Level: ${metrics.rmsLevel?.toFixed(1) || -20} dB
+- Dynamic Range: ${metrics.dynamicRange?.toFixed(1) || 0} dB
+- Sample Rate: ${metrics.sampleRate || 44100} Hz
+- Channels: ${metrics.channels === 1 ? 'Mono' : metrics.channels === 2 ? 'Stereo' : metrics.channels}
+${metrics.issues?.length > 0 ? '\nIssues: ' + metrics.issues.join(', ') : ''}
+`;
+
+  const prompt = `You are Engnr, an elite mix engineer known for crispy, radio-ready sound. Analyze this audio file for professional mastering.${referenceContext}${visionContext}
+
+${metricsText}
+
+Provide a PROFESSIONAL MASTERING ANALYSIS with EXACT settings:
+
+1. Quick Assessment (2 sentences): How does this compare to mainstream release quality?
+
+2. Critical Issues (if any): What's holding this back from radio-ready?
+
+3. Pro Processing Chain (in exact order):
+   - EQ Settings: List each band with frequency, gain (dB), and Q value
+     Example: "Low Cut: 80Hz, High-pass | Presence Boost: +2.5dB at 3200Hz, Q=1.2"
+
+   - Compression Settings: Ratio, threshold (dB), attack (ms), release (ms)
+     Example: "Compression: 4:1 ratio, -18dB threshold, 8ms attack, 100ms release"
+
+   - Saturation/Harmonics: Type and amount if needed
+     Example: "Tape saturation: 15% drive for warmth"
+
+   - Limiting: Threshold and target loudness
+     Example: "Limiter: -0.3dB threshold, target -10 LUFS"
+
+4. Polish Touches: Final refinements for mainstream sparkle
+
+TARGET SOUND: Modern Hip-Hop/R&B clarity - crispy highs, controlled lows, intimate presence (Drake, PARTYNEXTDOOR, The Weeknd style).
+
+Be specific with numbers. No vague advice.`;
+
+  const result = await model.generateContent([
+    {
+      inlineData: {
+        mimeType: mimeType,
+        data: base64Audio
+      }
+    },
+    { text: prompt }
+  ]);
+
+  const response = await result.response;
+  return response.text();
+}
+
+function getMimeType(filePath) {
+  const ext = path.extname(filePath).toLowerCase();
+  const mimeTypes = {
+    '.mp3': 'audio/mp3',
+    '.wav': 'audio/wav',
+    '.m4a': 'audio/mp4',
+    '.aac': 'audio/aac',
+    '.ogg': 'audio/ogg',
+    '.flac': 'audio/flac',
+    '.webm': 'audio/webm'
+  };
+  return mimeTypes[ext] || 'audio/wav';
+}
+
 function localChat(prompt, modes = {}) {
   if (modes.fast) return 'Short: Understood. Quick tip: check gain staging and de-ess.';
   return `Engnr reply: I read your prompt and can help. You asked: ${prompt}`;
 }
 
-async function callHfModel(prompt, model = 'distilgpt2', max_length = 512) {
-  const token = process.env.HF_API_KEY;
-  if (!token) throw new Error('No HF_API_KEY');
-
-  const url = `https://api-inference.huggingface.co/models/${model}`;
-  const body = { inputs: prompt, parameters: { max_new_tokens: Math.min(512, max_length) } };
-
-  const resp = await fetch(url, {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-    timeout: 120000,
-  });
-
-  if (!resp.ok) {
-    const text = await resp.text();
-    throw new Error(`HF error: ${resp.status} ${text}`);
-  }
-
-  const json = await resp.json();
-  if (Array.isArray(json) && json[0]?.generated_text) return json[0].generated_text;
-  if (json?.error && typeof json.error === 'string') throw new Error(json.error);
-  if (typeof json === 'string') return json;
-  // Try to extract text
-  if (Array.isArray(json) && json[0]) return JSON.stringify(json[0]);
-  return JSON.stringify(json);
-}
-
-export async function generateAnalysis(metrics, referenceContext = '', visionContext = '') {
-  if (process.env.HF_API_KEY) {
-    const prompt = `Audio metrics:\n${JSON.stringify(metrics, null, 2)}\n\nReference:${referenceContext}\nVision:${visionContext}\n\nProvide a professional studio analysis, issues, and concrete processing chain.`;
+export async function generateAnalysis(metrics, referenceContext = '', visionContext = '', audioFilePath = null) {
+  if (process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY !== 'your_gemini_api_key_here' && audioFilePath) {
     try {
-      const out = await callHfModel(prompt, process.env.HF_MODEL || 'distilgpt2', 512);
-      return out;
+      console.log('Using Gemini API for audio analysis...');
+      const analysis = await callGeminiForAnalysis(audioFilePath, metrics, referenceContext, visionContext);
+      return analysis;
     } catch (err) {
-      console.error('HF analysis failed, falling back to local:', err.message);
+      console.error('Gemini API failed:', err.message);
+      console.log('Falling back to local analysis');
     }
   }
+
+  if (!process.env.GEMINI_API_KEY || process.env.GEMINI_API_KEY === 'your_gemini_api_key_here') {
+    console.log('Gemini API key not configured. Using local analysis.');
+  }
+
   return localAnalysis(metrics, referenceContext, visionContext);
 }
 
 export async function generateChat(prompt, modes = {}) {
-  if (process.env.HF_API_KEY) {
-    const sys = modes.fast ? 'Be brief.' : 'Be detailed.';
-    const p = `${sys}\nUser: ${prompt}\nAssistant:`;
+  if (process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY !== 'your_gemini_api_key_here') {
     try {
-      const out = await callHfModel(p, process.env.HF_MODEL || 'distilgpt2', modes.fast ? 200 : 512);
-      return out;
+      const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+      const model = genAI.getGenerativeModel({
+        model: modes.fast ? 'gemini-1.5-flash' : 'gemini-1.5-pro'
+      });
+
+      const systemPrompt = `You are Engnr, an elite AI mix engineer. You deliver mainstream, radio-ready sound.
+${modes.fast ? 'Be extremely brief (2-3 sentences max).' : ''}
+${modes.webSearch ? 'Provide comprehensive, detailed guidance with specific techniques and exact settings.' : ''}
+${modes.lyricVerify ? 'Analyze lyrics for flow, rhythm, and structure.' : ''}`;
+
+      const result = await model.generateContent(`${systemPrompt}\n\nUser: ${prompt}`);
+      const response = await result.response;
+      return response.text();
     } catch (err) {
-      console.error('HF chat failed, falling back to local:', err.message);
+      console.error('Gemini chat failed:', err.message);
     }
   }
   return localChat(prompt, modes);

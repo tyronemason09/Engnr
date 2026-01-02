@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import express from "express";
 import multer from "multer";
 import fs from "fs";
@@ -150,7 +151,7 @@ TARGET SOUND: Modern Hip-Hop/R&B clarity - think Drake, PARTYNEXTDOOR, The Weekn
 
 Be specific with numbers. No vague advice.`;
 
-    const aiReply = await generateAnalysis(metrics, referenceContext, visionContext);
+    const aiReply = await generateAnalysis(metrics, referenceContext, visionContext, req.file.path);
 
     if (!currentId) {
       const newConv = createConversation(`Vocal Analysis - ${new Date().toLocaleTimeString()}`);
