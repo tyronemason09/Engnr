@@ -1,0 +1,27 @@
+{
+  "conversations": [
+    {
+      "id": 1,
+      "title": "hey",
+      "createdAt": 1767298324606
+    }
+  ],
+  "messages": [
+    {
+      "id": 1,
+      "conversationId": 1,
+      "role": "user",
+      "content": "hey",
+      "createdAt": 1767298324613
+    },
+    {
+      "id": 2,
+      "conversationId": 1,
+      "role": "assistant",
+      "content": "Engnr reply: I read your prompt and can help. You asked: hey",
+      "createdAt": 1767298324613
+    }
+  ],
+  "nextConvId": 2,
+  "nextMsgId": 3
+}

@@ -1,0 +1,939 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Engnr | Sound Design</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=Outfit:wght@700;900&display=swap" rel="stylesheet">
+  <style>
+    html, body {
+      height: 100%;
+      overflow: hidden;
+    }
+    body {
+      font-family: 'Inter', sans-serif;
+      background: radial-gradient(circle at top left, #fdfdfd 0%, #e5e7eb 40%, #d1d5db 100%);
+      background-attachment: fixed;
+    }
+    .heading-font { font-family: 'Outfit', sans-serif; }
+    .glass-card {
+      background: rgba(255, 255, 255, 0.45);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 255, 255, 0.6);
+      box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.05);
+    }
+    .chrome-text {
+      background: linear-gradient(180deg, #111 0%, #666 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      filter: drop-shadow(0px 2px 2px rgba(255,255,255,0.8));
+    }
+    .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+    .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.1); border-radius: 10px; }
+    .history-item.active { background: rgba(255,255,255,0.8); border-color: rgba(0,0,0,0.1); }
+    .message-user { background: white; color: black; border: 1px solid rgba(0,0,0,0.05); }
+    .message-ai { background: rgba(0,0,0,0.02); color: #374151; }
+    .mode-btn.active { background: black !important; border-color: black !important; }
+    .mode-btn.active span { color: white !important; }
+    .mode-pill { background: black; color: white; padding: 2px 10px; border-radius: 999px; font-size: 10px; font-weight: 600; }
+    .tooltip-wrap { position: relative; }
+    .tooltip-wrap .tooltip {
+      position: absolute;
+      bottom: 100%;
+      left: 50%;
+      transform: translateX(-50%);
+      margin-bottom: 8px;
+      padding: 10px 14px;
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.12);
+      white-space: nowrap;
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 0.2s, visibility 0.2s;
+      z-index: 50;
+      min-width: 140px;
+      text-align: left;
+    }
+    .tooltip-wrap:hover .tooltip { opacity: 1; visibility: visible; }
+    .tooltip-title { font-weight: 600; font-size: 13px; color: #111; display: flex; align-items: center; gap: 6px; }
+    .tooltip-desc { font-size: 11px; color: #666; margin-top: 3px; }
+  </style>
+</head>
+<body class="h-screen flex overflow-hidden">
+
+  <!-- Sidebar -->
+  <aside class="w-72 bg-white/50 backdrop-blur-xl border-r border-white/40 flex flex-col p-5 shadow-xl z-20">
+    <div class="flex items-center gap-3 mb-8">
+      <div class="w-9 h-9 bg-black rounded-lg flex items-center justify-center shadow-lg">
+        <span class="text-white font-bold text-lg">E</span>
+      </div>
+      <h1 class="text-xl font-bold tracking-tighter chrome-text heading-font">ENGNR</h1>
+    </div>
+
+    <button id="new-chat-btn" class="w-full py-3 mb-6 rounded-2xl bg-black text-white font-bold text-xs tracking-widest uppercase hover:bg-gray-800 transition-all shadow-lg flex items-center justify-center gap-2">
+      <span>+</span> New Session
+    </button>
+
+    <div class="flex-1 overflow-y-auto space-y-2 pr-1 custom-scrollbar" id="history-list">
+      <!-- History items -->
+    </div>
+  </aside>
+
+  <!-- Main Content -->
+  <main class="flex-1 flex flex-col relative overflow-hidden min-h-0">
+    <div class="absolute top-[-10%] right-[-10%] w-[40rem] h-[40rem] bg-blue-400/10 rounded-full blur-[120px] pointer-events-none"></div>
+    <div class="absolute bottom-[-10%] left-[-10%] w-[40rem] h-[40rem] bg-purple-400/10 rounded-full blur-[120px] pointer-events-none"></div>
+
+    <!-- Welcome View (New Chat) -->
+    <div id="welcome-view" class="flex-1 flex flex-col p-8 max-w-4xl mx-auto w-full z-10 min-h-0 overflow-y-auto">
+      <div class="flex-1 flex flex-col justify-center">
+        <div class="text-center mb-8">
+          <h2 class="heading-font text-4xl md:text-5xl font-black tracking-tighter chrome-text leading-tight uppercase">
+            LET'S ENGINEER YOUR SOUND
+          </h2>
+          <p class="text-gray-500 mt-2 text-sm font-medium">Ask about mixing, mastering, EQ, compression, or drop a track for analysis.</p>
+        </div>
+
+        <div class="glass-card rounded-[2rem] p-4 flex flex-col border border-white/40 shadow-2xl mb-6">
+          <div class="flex flex-col items-center justify-center py-8 space-y-2 text-center">
+            <div class="w-14 h-14 bg-white/60 rounded-full flex items-center justify-center shadow-inner">
+              <span class="text-2xl animate-pulse">🎹</span>
+            </div>
+            <p class="text-gray-400 font-medium italic text-xs">You guide the vision — Engnr handles the mix.</p>
+          </div>
+
+          <form id="welcome-form" class="bg-white/50 rounded-[1.5rem] p-4 border border-white/30">
+            <textarea 
+              id="welcome-prompt"
+              placeholder="Ask about mixing, mastering, EQ, compression, vocals..." 
+              class="w-full bg-transparent border-none focus:ring-0 text-base text-gray-700 placeholder-gray-400 resize-none font-medium overflow-y-auto"
+              style="min-height: 64px; max-height: 200px;"
+              oninput="this.style.height = 'auto'; this.style.height = Math.min(this.scrollHeight, 200) + 'px';"
+            ></textarea>
+            
+            <div class="flex items-center justify-between mt-3">
+              <div class="flex gap-1 items-center">
+                <div class="tooltip-wrap">
+                  <label class="mode-btn w-9 h-9 rounded-full border border-gray-200 flex items-center justify-center cursor-pointer hover:bg-white/80 transition-all">
+                    <span class="text-base text-gray-500">+</span>
+                    <input type="file" id="welcome-audio" class="hidden" accept="audio/*">
+                  </label>
+                  <div class="tooltip">
+                    <div class="tooltip-title">+ Upload Audio</div>
+                    <div class="tooltip-desc">Analyze a track for mixing advice</div>
+                  </div>
+                </div>
+                <div class="tooltip-wrap">
+                  <button type="button" id="welcome-btn-fast" class="mode-btn w-9 h-9 rounded-full border border-gray-200 flex items-center justify-center hover:bg-white/80 transition-all">
+                    <span class="text-base text-gray-500">⚡</span>
+                  </button>
+                  <div class="tooltip">
+                    <div class="tooltip-title">⚡ Fast Mode</div>
+                    <div class="tooltip-desc">Quick, concise responses</div>
+                  </div>
+                </div>
+                <div class="tooltip-wrap">
+                  <button type="button" id="welcome-btn-search" class="mode-btn w-9 h-9 rounded-full border border-gray-200 flex items-center justify-center hover:bg-white/80 transition-all">
+                    <span class="text-base text-gray-500">⊶</span>
+                  </button>
+                  <div class="tooltip">
+                    <div class="tooltip-title">⊶ Detailed Mode</div>
+                    <div class="tooltip-desc">In-depth guidance with techniques</div>
+                  </div>
+                </div>
+                <div class="tooltip-wrap">
+                  <button type="button" id="welcome-btn-lyrics" class="mode-btn w-9 h-9 rounded-full border border-gray-200 flex items-center justify-center hover:bg-white/80 transition-all">
+                    <span class="text-base text-gray-500">♬</span>
+                  </button>
+                  <div class="tooltip">
+                    <div class="tooltip-title">♬ Lyric Check</div>
+                    <div class="tooltip-desc">Analyze flow, rhythm & rhyme scheme</div>
+                  </div>
+                </div>
+              </div>
+              
+              <button type="submit" class="bg-black hover:bg-gray-800 text-white px-6 py-2 rounded-full font-bold text-xs tracking-tight transition-all shadow-md flex items-center gap-2">
+                🪄 Start Cooking
+              </button>
+            </div>
+          </form>
+        </div>
+
+        <div class="flex flex-wrap justify-center gap-2">
+          <span class="glass-card px-4 py-1.5 rounded-full text-xs font-bold text-gray-600 cursor-pointer hover:border-black transition-all sample-prompt">
+            🎚️ MIX MY VOCALS
+          </span>
+          <span class="glass-card px-4 py-1.5 rounded-full text-xs font-bold text-gray-600 cursor-pointer hover:border-black transition-all sample-prompt">
+            🔊 MASTER MY TRACK
+          </span>
+          <span class="glass-card px-4 py-1.5 rounded-full text-xs font-bold text-gray-600 cursor-pointer hover:border-black transition-all sample-prompt">
+            🎛️ FIX MY LOW END
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Conversation View (Active Chat) -->
+    <div id="conversation-view" class="hidden flex-1 flex flex-col z-10" style="height: 100%; max-height: 100%; overflow: hidden;">
+      <div class="flex-shrink-0 border-b border-gray-200/50 bg-white/30 backdrop-blur-sm px-6 py-4">
+        <h2 id="chat-title" class="heading-font text-lg font-bold tracking-tight text-gray-800 flex items-center gap-2">
+          <span class="w-2 h-2 bg-green-500 rounded-full"></span>
+          <span id="chat-title-text">New Session</span>
+        </h2>
+      </div>
+
+      <div id="chat-box" class="flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar" style="min-height: 0;">
+      </div>
+
+      <div class="flex-shrink-0 border-t border-gray-200/50 bg-white/50 backdrop-blur-sm p-4">
+        <div id="mode-indicators" class="hidden flex-wrap gap-2 mb-2 px-2"></div>
+        
+        <div id="reference-track-section" class="hidden max-w-4xl mx-auto mb-3">
+          <div class="bg-gradient-to-r from-purple-50 to-indigo-50 rounded-xl p-3 border border-purple-200/50">
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-2">
+                <span class="text-purple-600 text-lg">🎵</span>
+                <div>
+                  <p class="text-xs font-semibold text-purple-700">Reference Track</p>
+                  <p id="reference-track-name" class="text-xs text-purple-500 truncate max-w-[200px]">No track selected</p>
+                </div>
+              </div>
+              <button type="button" id="clear-reference" class="text-xs text-purple-400 hover:text-purple-600 hidden">Clear</button>
+            </div>
+          </div>
+        </div>
+        
+        <div id="pending-processing-bar" class="hidden max-w-4xl mx-auto mb-3">
+          <div class="bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl p-3 border border-green-200/50 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
+                <span class="text-green-600 text-lg">🎧</span>
+              </div>
+              <div>
+                <p class="text-sm font-semibold text-green-700">Ready to Process</p>
+                <p id="pending-file-name" class="text-xs text-green-500 truncate max-w-[200px]">Your audio is ready for enhancement</p>
+              </div>
+            </div>
+            <button type="button" id="floating-apply-btn" onclick="applyAudioChanges(currentProcessingId)" class="px-5 py-2.5 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white rounded-xl font-semibold text-sm shadow-lg shadow-green-500/30 transition-all flex items-center gap-2">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+              Apply Changes
+            </button>
+          </div>
+        </div>
+        
+        <form id="cooking-form" class="bg-white/70 rounded-2xl p-4 border border-gray-200/50 shadow-sm max-w-4xl mx-auto">
+          <div id="lyric-input-container" class="hidden mb-3">
+            <textarea 
+              id="lyric-input"
+              placeholder="Paste your lyrics here for verification..."
+              class="w-full bg-white/70 border border-gray-200 rounded-xl p-3 text-sm text-gray-700 placeholder-gray-400 resize-none h-20 font-medium"
+            ></textarea>
+          </div>
+          
+          <textarea 
+            id="prompt-input"
+            placeholder="Ask about mixing, mastering, EQ, compression, vocals... (Tell me exactly what sound you want!)" 
+            class="w-full bg-transparent border-none focus:ring-0 text-base text-gray-700 placeholder-gray-400 resize-none font-medium overflow-y-auto"
+            style="min-height: 48px; max-height: 200px;"
+            oninput="this.style.height = 'auto'; this.style.height = Math.min(this.scrollHeight, 200) + 'px';"
+          ></textarea>
+          
+          <div class="flex items-center justify-between mt-2">
+            <div class="flex gap-1 items-center">
+              <div class="tooltip-wrap">
+                <label id="btn-upload" class="mode-btn w-9 h-9 rounded-full border border-gray-200 flex items-center justify-center cursor-pointer hover:bg-white/80 transition-all">
+                  <span class="text-base text-gray-500">+</span>
+                  <input type="file" id="audio-upload" class="hidden" accept="audio/*">
+                </label>
+                <div class="tooltip">
+                  <div class="tooltip-title">+ Upload Audio</div>
+                  <div class="tooltip-desc">Analyze a track for mixing advice</div>
+                </div>
+              </div>
+              <div class="tooltip-wrap">
+                <label id="btn-reference" class="mode-btn w-9 h-9 rounded-full border border-purple-300 flex items-center justify-center cursor-pointer hover:bg-purple-50 transition-all bg-purple-50/50">
+                  <span class="text-base text-purple-500">🎵</span>
+                  <input type="file" id="reference-upload" class="hidden" accept="audio/*">
+                </label>
+                <div class="tooltip">
+                  <div class="tooltip-title">🎵 Reference Track</div>
+                  <div class="tooltip-desc">Set your target sound quality</div>
+                </div>
+              </div>
+              <div class="tooltip-wrap">
+                <button type="button" id="btn-fast" class="mode-btn w-9 h-9 rounded-full border border-gray-200 flex items-center justify-center hover:bg-white/80 transition-all">
+                  <span class="text-base text-gray-500">⚡</span>
+                </button>
+                <div class="tooltip">
+                  <div class="tooltip-title">⚡ Fast Mode</div>
+                  <div class="tooltip-desc">Quick, concise responses</div>
+                </div>
+              </div>
+              <div class="tooltip-wrap">
+                <button type="button" id="btn-search" class="mode-btn w-9 h-9 rounded-full border border-gray-200 flex items-center justify-center hover:bg-white/80 transition-all">
+                  <span class="text-base text-gray-500">⊶</span>
+                </button>
+                <div class="tooltip">
+                  <div class="tooltip-title">⊶ Detailed Mode</div>
+                  <div class="tooltip-desc">In-depth guidance with techniques</div>
+                </div>
+              </div>
+              <div class="tooltip-wrap">
+                <button type="button" id="btn-lyrics" class="mode-btn w-9 h-9 rounded-full border border-gray-200 flex items-center justify-center hover:bg-white/80 transition-all">
+                  <span class="text-base text-gray-500">♬</span>
+                </button>
+                <div class="tooltip">
+                  <div class="tooltip-title">♬ Lyric Check</div>
+                  <div class="tooltip-desc">Analyze flow, rhythm & rhyme scheme</div>
+                </div>
+              </div>
+            </div>
+            
+            <button type="submit" id="send-btn" class="bg-black hover:bg-gray-800 text-white w-10 h-10 rounded-full font-bold text-sm transition-all shadow-md flex items-center justify-center">
+              <span id="send-icon">↑</span>
+              <span id="stop-icon" class="hidden">◼</span>
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </main>
+
+  <!-- Right Sidebar - Applied Changes -->
+  <aside id="applied-sidebar" class="w-80 bg-white/50 backdrop-blur-xl border-l border-white/40 flex-col shadow-xl z-20 hidden">
+    <div class="p-5 border-b border-gray-200/50">
+      <h2 class="heading-font text-lg font-bold tracking-tight text-gray-800 flex items-center gap-2">
+        <span class="text-green-500">✓</span> Applied Changes
+      </h2>
+      <p class="text-xs text-gray-500 mt-1">Your processed audio files</p>
+    </div>
+    
+    <div id="applied-list" class="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar">
+      <div id="empty-applied" class="flex flex-col items-center justify-center h-full text-center text-gray-400 py-10">
+        <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4">
+          <span class="text-2xl">🎧</span>
+        </div>
+        <p class="text-sm font-medium">No processed files yet</p>
+        <p class="text-xs mt-1">Upload audio and apply changes to see them here</p>
+      </div>
+    </div>
+  </aside>
+
+  <script>
+    const welcomeView = document.getElementById('welcome-view');
+    const conversationView = document.getElementById('conversation-view');
+    const welcomeForm = document.getElementById('welcome-form');
+    const welcomePrompt = document.getElementById('welcome-prompt');
+    const welcomeAudio = document.getElementById('welcome-audio');
+    
+    const audioUpload = document.getElementById('audio-upload');
+    const referenceUpload = document.getElementById('reference-upload');
+    const referenceSection = document.getElementById('reference-track-section');
+    const referenceTrackName = document.getElementById('reference-track-name');
+    const clearReferenceBtn = document.getElementById('clear-reference');
+    const promptInput = document.getElementById('prompt-input');
+    const lyricInput = document.getElementById('lyric-input');
+    const lyricContainer = document.getElementById('lyric-input-container');
+    const cookingForm = document.getElementById('cooking-form');
+    const chatBox = document.getElementById('chat-box');
+    const historyList = document.getElementById('history-list');
+    const newChatBtn = document.getElementById('new-chat-btn');
+    const chatTitleText = document.getElementById('chat-title-text');
+    const samplePrompts = document.querySelectorAll('.sample-prompt');
+    const modeIndicators = document.getElementById('mode-indicators');
+    const btnFast = document.getElementById('btn-fast');
+    const btnSearch = document.getElementById('btn-search');
+    const btnLyrics = document.getElementById('btn-lyrics');
+    const welcomeBtnFast = document.getElementById('welcome-btn-fast');
+    const welcomeBtnSearch = document.getElementById('welcome-btn-search');
+    
+    let currentReferenceTrack = null;
+    const welcomeBtnLyrics = document.getElementById('welcome-btn-lyrics');
+
+    let currentConversationId = null;
+    let currentProcessingId = null;
+    let modes = { fast: false, webSearch: false, lyricVerify: false };
+    let isThinking = false;
+    let abortController = null;
+
+    const sendBtn = document.getElementById('send-btn');
+    const sendIcon = document.getElementById('send-icon');
+    const stopIcon = document.getElementById('stop-icon');
+    const appliedSidebar = document.getElementById('applied-sidebar');
+    const pendingProcessingBar = document.getElementById('pending-processing-bar');
+    const pendingFileName = document.getElementById('pending-file-name');
+    let pendingOriginalName = null;
+
+    function setThinkingState(thinking) {
+      isThinking = thinking;
+      if (thinking) {
+        sendIcon.classList.add('hidden');
+        stopIcon.classList.remove('hidden');
+        sendBtn.classList.remove('bg-black');
+        sendBtn.classList.add('bg-red-500', 'hover:bg-red-600');
+      } else {
+        sendIcon.classList.remove('hidden');
+        stopIcon.classList.add('hidden');
+        sendBtn.classList.add('bg-black');
+        sendBtn.classList.remove('bg-red-500', 'hover:bg-red-600');
+        abortController = null;
+      }
+    }
+
+    function stopGeneration() {
+      if (abortController) {
+        abortController.abort();
+        setThinkingState(false);
+      }
+    }
+
+    function showPendingProcessingBar(filename) {
+      pendingOriginalName = filename;
+      pendingFileName.textContent = filename || 'Your audio is ready for enhancement';
+      pendingProcessingBar.classList.remove('hidden');
+    }
+
+    function hidePendingProcessingBar() {
+      pendingProcessingBar.classList.add('hidden');
+      pendingOriginalName = null;
+      currentProcessingId = null;
+    }
+
+    function showWelcomeView() {
+      welcomeView.classList.remove('hidden');
+      conversationView.classList.add('hidden');
+      hidePendingProcessingBar();
+      appliedSidebar.classList.add('hidden');
+      appliedSidebar.classList.remove('lg:flex');
+      currentConversationId = null;
+      currentReferenceTrack = null;
+      modes = { fast: false, webSearch: false, lyricVerify: false };
+      [btnFast, btnSearch, btnLyrics, welcomeBtnFast, welcomeBtnSearch, welcomeBtnLyrics].forEach(b => b?.classList.remove('active'));
+      lyricContainer.classList.add('hidden');
+      referenceSection.classList.add('hidden');
+      referenceTrackName.textContent = 'No track selected';
+      clearReferenceBtn.classList.add('hidden');
+      updateModeIndicators();
+      welcomePrompt.value = '';
+      welcomePrompt.focus();
+    }
+
+    function showConversationView(title) {
+      welcomeView.classList.add('hidden');
+      conversationView.classList.remove('hidden');
+      appliedSidebar.classList.remove('hidden');
+      appliedSidebar.classList.add('lg:flex');
+      chatTitleText.textContent = title;
+      chatBox.innerHTML = '';
+      promptInput.focus();
+    }
+
+    function updateModeIndicators() {
+      const pills = [];
+      if (modes.fast) pills.push('<span class="mode-pill">⚡ Fast Mode</span>');
+      if (modes.webSearch) pills.push('<span class="mode-pill">🔍 Detailed</span>');
+      if (modes.lyricVerify) pills.push('<span class="mode-pill">♬ Lyric Check</span>');
+      
+      if (pills.length > 0) {
+        modeIndicators.innerHTML = pills.join('');
+        modeIndicators.classList.remove('hidden');
+        modeIndicators.classList.add('flex');
+      } else {
+        modeIndicators.classList.add('hidden');
+        modeIndicators.classList.remove('flex');
+      }
+    }
+
+    function toggleMode(mode, btn, altBtn) {
+      if (mode === 'fast' && modes.webSearch) {
+        modes.webSearch = false;
+        btnSearch.classList.remove('active');
+        welcomeBtnSearch?.classList.remove('active');
+      }
+      if (mode === 'webSearch' && modes.fast) {
+        modes.fast = false;
+        btnFast.classList.remove('active');
+        welcomeBtnFast?.classList.remove('active');
+      }
+      
+      modes[mode] = !modes[mode];
+      btn.classList.toggle('active', modes[mode]);
+      altBtn?.classList.toggle('active', modes[mode]);
+      
+      if (mode === 'lyricVerify') {
+        lyricContainer.classList.toggle('hidden', !modes.lyricVerify);
+      }
+      
+      updateModeIndicators();
+    }
+
+    btnFast.onclick = () => toggleMode('fast', btnFast, welcomeBtnFast);
+    btnSearch.onclick = () => toggleMode('webSearch', btnSearch, welcomeBtnSearch);
+    btnLyrics.onclick = () => toggleMode('lyricVerify', btnLyrics, welcomeBtnLyrics);
+    welcomeBtnFast.onclick = () => toggleMode('fast', welcomeBtnFast, btnFast);
+    welcomeBtnSearch.onclick = () => toggleMode('webSearch', welcomeBtnSearch, btnSearch);
+    welcomeBtnLyrics.onclick = () => toggleMode('lyricVerify', welcomeBtnLyrics, btnLyrics);
+
+    async function loadHistory() {
+      try {
+        const response = await fetch('/api/conversations');
+        const history = await response.json();
+        historyList.innerHTML = '';
+        
+        history.forEach(item => {
+          const date = new Date(item.createdAt);
+          const timeStr = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+          const dateStr = date.toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' });
+
+          const div = document.createElement('div');
+          div.className = `history-item p-3 rounded-xl cursor-pointer border border-transparent transition-all hover:bg-white/60 ${currentConversationId === item.id ? 'active' : ''} group relative`;
+          div.innerHTML = `
+            <p class="font-semibold text-sm truncate text-gray-800 pr-6">${item.title}</p>
+            <p class="text-[10px] text-gray-400 mt-1">${dateStr} at ${timeStr}</p>
+            <button class="delete-btn absolute top-2 right-2 w-6 h-6 rounded-full bg-red-100 hover:bg-red-200 text-red-500 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-xs" title="Delete chat">✕</button>
+          `;
+          div.querySelector('.delete-btn').onclick = (e) => {
+            e.stopPropagation();
+            deleteConversation(item.id);
+          };
+          div.onclick = () => selectConversation(item.id, item.title);
+          historyList.appendChild(div);
+        });
+      } catch (err) {
+        console.error('Failed to load history:', err);
+      }
+    }
+
+    async function selectConversation(id, title) {
+      currentConversationId = id;
+      hidePendingProcessingBar();
+      showConversationView(title);
+      chatBox.innerHTML = '<div class="text-center text-gray-400 italic text-sm py-10">Loading...</div>';
+      
+      try {
+        const response = await fetch(`/api/conversations/${id}/messages`);
+        const msgs = await response.json();
+        
+        chatBox.innerHTML = '';
+        msgs.forEach(msg => appendMessage(msg.role, msg.content, false));
+        loadHistory();
+      } catch (err) {
+        chatBox.innerHTML = '<div class="text-center text-red-400 text-sm">Failed to load messages.</div>';
+      }
+    }
+
+    function typeWriter(element, text, speed = 8) {
+      let i = 0;
+      element.textContent = '';
+      function type() {
+        if (i < text.length) {
+          element.textContent += text.charAt(i);
+          i++;
+          chatBox.scrollTop = chatBox.scrollHeight;
+          setTimeout(type, speed);
+        }
+      }
+      type();
+    }
+
+    function appendMessage(role, content, animate = true) {
+      const div = document.createElement('div');
+      div.className = `p-4 rounded-2xl max-w-[80%] text-sm leading-relaxed ${role === 'user' ? 'message-user ml-auto' : 'message-ai'}`;
+      
+      if (role === 'assistant') {
+        div.innerHTML = `
+          <div class="flex items-center gap-2 mb-3">
+            <div class="w-2 h-2 bg-green-500 rounded-full"></div>
+            <span class="text-xs font-bold text-gray-500">Engnr</span>
+          </div>
+          <div class="text-gray-700 whitespace-pre-wrap ai-text"></div>
+        `;
+        chatBox.appendChild(div);
+        const textEl = div.querySelector('.ai-text');
+        if (animate && content.length < 2000) {
+          typeWriter(textEl, content);
+        } else {
+          textEl.textContent = content;
+        }
+      } else {
+        div.textContent = content;
+        chatBox.appendChild(div);
+      }
+      
+      chatBox.scrollTop = chatBox.scrollHeight;
+    }
+
+    async function deleteConversation(id) {
+      if (!confirm('Delete this chat? This cannot be undone.')) return;
+      
+      try {
+        await fetch(`/api/conversations/${id}`, { method: 'DELETE' });
+        if (currentConversationId === id) {
+          showWelcomeView();
+        }
+        loadHistory();
+      } catch (err) {
+        alert('Failed to delete chat');
+      }
+    }
+
+    newChatBtn.onclick = () => {
+      showWelcomeView();
+      loadHistory();
+    };
+
+    async function sendMessage(text, lyrics = '') {
+      if (!text && !lyrics) return;
+
+      const isNewChat = !currentConversationId;
+      const shortTitle = text.slice(0, 40) + (text.length > 40 ? '...' : '');
+      
+      if (isNewChat) {
+        showConversationView(shortTitle);
+      }
+
+      const displayText = modes.lyricVerify && lyrics ? `[Lyric Check] ${text || 'Verify these lyrics'}` : text;
+      appendMessage('user', displayText);
+
+      const loadingDiv = document.createElement('div');
+      loadingDiv.className = 'message-ai p-4 rounded-2xl max-w-[80%] text-sm italic text-gray-400';
+      loadingDiv.innerHTML = `
+        <div class="flex items-center gap-2 mb-3">
+          <div class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+          <span class="text-xs font-bold text-gray-500">Engnr</span>
+        </div>
+        <div>${modes.fast ? 'Quick response...' : modes.webSearch ? 'Getting detailed info...' : modes.lyricVerify ? 'Analyzing lyrics...' : 'Thinking...'}</div>
+      `;
+      chatBox.appendChild(loadingDiv);
+      chatBox.scrollTop = chatBox.scrollHeight;
+
+      abortController = new AbortController();
+      setThinkingState(true);
+
+      try {
+        const response = await fetch('/api/engnr-chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            prompt: text, 
+            conversationId: currentConversationId,
+            modes: modes,
+            lyrics: lyrics
+          }),
+          signal: abortController.signal
+        });
+        const data = await response.json();
+        
+        loadingDiv.remove();
+        appendMessage('assistant', data.reply);
+        
+        if (!currentConversationId && data.conversationId) {
+          currentConversationId = data.conversationId;
+        }
+        loadHistory();
+      } catch (err) {
+        if (err.name === 'AbortError') {
+          loadingDiv.remove();
+          appendMessage('assistant', 'Generation stopped.');
+        } else {
+          loadingDiv.innerHTML = `
+            <div class="flex items-center gap-2 mb-3">
+              <div class="w-2 h-2 bg-red-500 rounded-full"></div>
+              <span class="text-xs font-bold text-gray-500">Engnr</span>
+            </div>
+            <div class="text-red-500">Error connecting. Please try again.</div>
+          `;
+        }
+      } finally {
+        setThinkingState(false);
+      }
+    }
+
+    welcomeForm.onsubmit = async (e) => {
+      e.preventDefault();
+      if (isThinking) {
+        stopGeneration();
+        return;
+      }
+      const text = welcomePrompt.value.trim();
+      welcomePrompt.value = '';
+      welcomePrompt.style.height = 'auto';
+      await sendMessage(text);
+    };
+
+    cookingForm.onsubmit = async (e) => {
+      e.preventDefault();
+      if (isThinking) {
+        stopGeneration();
+        return;
+      }
+      const text = promptInput.value.trim();
+      const lyrics = lyricInput ? lyricInput.value.trim() : '';
+      promptInput.value = '';
+      promptInput.style.height = 'auto';
+      if (lyricInput) lyricInput.value = '';
+      await sendMessage(text, lyrics);
+    };
+
+    promptInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        cookingForm.dispatchEvent(new Event('submit'));
+      }
+    });
+
+    welcomePrompt.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        welcomeForm.dispatchEvent(new Event('submit'));
+      }
+    });
+
+    async function analyzeAudioFile(file) {
+      const isNewChat = !currentConversationId;
+      const shortTitle = `Analyzing: ${file.name.slice(0, 25)}`;
+      
+      if (isNewChat) {
+        showConversationView(shortTitle);
+      }
+
+      appendMessage('user', `[Audio Upload] Analyze: ${file.name}`);
+
+      const loadingDiv = document.createElement('div');
+      loadingDiv.className = 'message-ai p-4 rounded-2xl max-w-[80%] text-sm';
+      loadingDiv.innerHTML = `
+        <div class="flex items-center gap-2 mb-3">
+          <div class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+          <span class="text-xs font-bold text-gray-500">Engnr</span>
+        </div>
+        <div class="text-gray-500 italic">Analyzing audio file... This may take a moment.</div>
+      `;
+      chatBox.appendChild(loadingDiv);
+      chatBox.scrollTop = chatBox.scrollHeight;
+
+      const formData = new FormData();
+      formData.append("audio", file);
+      formData.append("professional", "true");
+      if (currentConversationId) {
+        formData.append("conversationId", currentConversationId);
+      }
+      if (currentReferenceTrack) {
+        formData.append("referenceTrack", currentReferenceTrack.name);
+      }
+
+      try {
+        const response = await fetch("/api/engnr-analyze", { method: "POST", body: formData });
+        const data = await response.json();
+        
+        loadingDiv.remove();
+        
+        if (data.error) {
+          appendMessage('assistant', `Error analyzing audio: ${data.error}`);
+        } else {
+          if (!currentConversationId && data.conversationId) {
+            currentConversationId = data.conversationId;
+          }
+          
+          if (data.canProcess && data.processingId) {
+            currentProcessingId = data.processingId;
+            showPendingProcessingBar(file.name);
+            appendMessageWithButton(data.aiReply, data.processingId);
+          } else {
+            appendMessage('assistant', data.aiReply);
+          }
+        }
+        loadHistory();
+      } catch (err) {
+        loadingDiv.innerHTML = `
+          <div class="flex items-center gap-2 mb-3">
+            <div class="w-2 h-2 bg-red-500 rounded-full"></div>
+            <span class="text-xs font-bold text-gray-500">Engnr</span>
+          </div>
+          <div class="text-red-500">Error analyzing audio. Please try again.</div>
+        `;
+      }
+    }
+
+    function appendMessageWithButton(content, processingId) {
+      const div = document.createElement('div');
+      div.className = 'message-ai p-4 rounded-2xl max-w-[80%] text-sm leading-relaxed';
+      div.innerHTML = `
+        <div class="flex items-center gap-2 mb-3">
+          <div class="w-2 h-2 bg-green-500 rounded-full"></div>
+          <span class="text-xs font-bold text-gray-500">Engnr</span>
+        </div>
+        <div class="text-gray-700 whitespace-pre-wrap ai-text"></div>
+        <div class="flex gap-3 items-center mt-4 pt-4 border-t border-gray-200 opacity-0 transition-opacity duration-300" id="apply-${processingId}">
+          <button onclick="applyAudioChanges('${processingId}')" class="px-6 py-3 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white rounded-xl font-semibold text-sm shadow-lg shadow-green-500/30 transition-all flex items-center gap-2">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+            Apply Changes
+          </button>
+          <span class="text-xs text-gray-400">Session expires in 30 minutes</span>
+        </div>
+      `;
+      chatBox.appendChild(div);
+      const textEl = div.querySelector('.ai-text');
+      const buttonDiv = div.querySelector(`#apply-${processingId}`);
+      
+      if (content.length < 2000) {
+        let i = 0;
+        function type() {
+          if (i < content.length) {
+            textEl.textContent += content.charAt(i);
+            i++;
+            chatBox.scrollTop = chatBox.scrollHeight;
+            setTimeout(type, 8);
+          } else {
+            buttonDiv.classList.remove('opacity-0');
+            buttonDiv.classList.add('opacity-100');
+          }
+        }
+        type();
+      } else {
+        textEl.textContent = content;
+        buttonDiv.classList.remove('opacity-0');
+        buttonDiv.classList.add('opacity-100');
+      }
+      chatBox.scrollTop = chatBox.scrollHeight;
+    }
+
+    async function applyAudioChanges(processingId) {
+      const applyBtn = document.querySelector(`#apply-${processingId} button`);
+      if (applyBtn) {
+        applyBtn.disabled = true;
+        applyBtn.innerHTML = `
+          <svg class="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+          Processing...
+        `;
+      }
+
+      try {
+        const response = await fetch('/api/process-audio', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ processingId, conversationId: currentConversationId })
+        });
+        const data = await response.json();
+
+        const applyDiv = document.getElementById(`apply-${processingId}`);
+        if (applyDiv) applyDiv.remove();
+
+        if (data.error) {
+          appendMessage('assistant', `Processing error: ${data.error}`);
+        } else {
+          appendMessage('assistant', data.message);
+          hidePendingProcessingBar();
+          showDownloadButton(data.downloadUrl, data.filename);
+        }
+        loadHistory();
+      } catch (err) {
+        appendMessage('assistant', 'Error processing audio. Please try again.');
+        const applyDiv = document.getElementById(`apply-${processingId}`);
+        if (applyDiv) {
+          applyDiv.querySelector('button').disabled = false;
+          applyDiv.querySelector('button').innerHTML = `
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+            Apply Changes
+          `;
+        }
+      }
+    }
+
+    function showDownloadButton(downloadUrl, filename) {
+      const downloadDiv = document.createElement('div');
+      downloadDiv.className = 'flex gap-3 items-center mt-2';
+      downloadDiv.innerHTML = `
+        <a href="${downloadUrl}" download="${filename}" class="px-6 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white rounded-xl font-semibold text-sm shadow-lg shadow-blue-500/30 transition-all flex items-center gap-2">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+          Download Processed Audio
+        </a>
+        <span class="text-xs text-gray-400">${filename}</span>
+      `;
+      chatBox.appendChild(downloadDiv);
+      chatBox.scrollTop = chatBox.scrollHeight;
+      
+      addToAppliedChanges(filename, downloadUrl);
+    }
+
+    function addToAppliedChanges(filename, downloadUrl) {
+      const appliedList = document.getElementById('applied-list');
+      const emptyState = document.getElementById('empty-applied');
+      
+      if (emptyState) {
+        emptyState.style.display = 'none';
+      }
+      
+      const shortName = filename.length > 25 ? filename.substring(0, 22) + '...' : filename;
+      const timestamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      
+      const card = document.createElement('div');
+      card.className = 'bg-white rounded-xl p-4 shadow-sm border border-gray-100 hover:shadow-md transition-all';
+      card.innerHTML = `
+        <div class="flex items-start gap-3">
+          <div class="w-12 h-12 bg-gradient-to-br from-green-400 to-emerald-500 rounded-lg flex items-center justify-center flex-shrink-0">
+            <span class="text-white text-lg">🎵</span>
+          </div>
+          <div class="flex-1 min-w-0">
+            <p class="font-semibold text-sm text-gray-800 truncate" title="${filename}">${shortName}</p>
+            <p class="text-xs text-gray-400 mt-0.5">Processed at ${timestamp}</p>
+            <div class="flex gap-2 mt-2">
+              <a href="${downloadUrl}" download="${filename}" class="text-xs bg-black text-white px-3 py-1.5 rounded-full font-medium hover:bg-gray-800 transition-all flex items-center gap-1">
+                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                Download
+              </a>
+            </div>
+          </div>
+        </div>
+      `;
+      
+      appliedList.insertBefore(card, appliedList.firstChild);
+    }
+
+    window.applyAudioChanges = applyAudioChanges;
+
+    audioUpload.onchange = async (e) => {
+      if (e.target.files.length === 0) return;
+      await analyzeAudioFile(e.target.files[0]);
+      e.target.value = '';
+    };
+
+    welcomeAudio.onchange = async (e) => {
+      if (e.target.files.length === 0) return;
+      await analyzeAudioFile(e.target.files[0]);
+      e.target.value = '';
+    };
+
+    referenceUpload.onchange = (e) => {
+      if (e.target.files.length === 0) return;
+      currentReferenceTrack = e.target.files[0];
+      referenceTrackName.textContent = currentReferenceTrack.name;
+      referenceSection.classList.remove('hidden');
+      clearReferenceBtn.classList.remove('hidden');
+      e.target.value = '';
+      
+      appendMessage('user', `[Reference Track] Using "${currentReferenceTrack.name}" as sound reference`);
+      appendMessage('assistant', `Got it! I'll use **${currentReferenceTrack.name}** as your reference track. When you upload your audio for analysis, I'll tailor my recommendations to match that professional sound - crispy highs, punchy lows, that radio-ready polish. Upload your track whenever you're ready!`);
+    };
+
+    clearReferenceBtn.onclick = () => {
+      currentReferenceTrack = null;
+      referenceTrackName.textContent = 'No track selected';
+      referenceSection.classList.add('hidden');
+      clearReferenceBtn.classList.add('hidden');
+    };
+
+    samplePrompts.forEach(btn => {
+      btn.onclick = () => {
+        welcomePrompt.value = btn.textContent.trim().replace(/^[^\s]+\s+/, '');
+        welcomePrompt.focus();
+      };
+    });
+
+    loadHistory();
+  </script>
+
+</body>
+</html>
